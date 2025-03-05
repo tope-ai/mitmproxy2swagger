@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Converts a mitmproxy dump file to a swagger schema."""
+from src.utils_for_mitm import is_param
 import argparse
 import json
 import os
@@ -371,8 +372,8 @@ def main(override_args: Optional[Sequence[str]] = None):
             )
         sys.exit(1)
 
-    def is_param(param_value):
-        return args.param_regex.match(param_value) is not None
+    #def is_param(param_value):
+    #    return args.param_regex.match(param_value) is not None
 
     new_path_templates.sort()
 
@@ -382,11 +383,12 @@ def main(override_args: Optional[Sequence[str]] = None):
     for path in new_path_templates:
         # check if path contains number-only segments
         segments = path.split("/")
-        has_param = any(is_param(segment) for segment in segments)
+        has_param = any(is_param(segment, args) for segment in segments)
         if has_param:
             # replace digit segments with {id}, {id1}, {id2} etc
             new_segments = []
-            param_id = 0
+            param_counters = {"id": 0, "datetime": 0, "uuid": 0}
+            """
             for segment in segments:
                 if is_param(segment):
                     param_name = "id" + str(param_id)
@@ -394,6 +396,16 @@ def main(override_args: Optional[Sequence[str]] = None):
                         param_name = "id"
                     new_segments.append("{" + param_name + "}")
                     param_id += 1
+                else:
+                    new_segments.append(segment)
+            """
+            for segment in segments:
+                param_type = is_param(segment, args)
+                if param_type:
+                    param_count = param_counters[param_type]
+                    param_name = f"{param_type}{param_count if param_count > 1 else ''}"
+                    new_segments.append(f"{{{param_name}}}")
+                    param_counters[param_type] += 1
                 else:
                     new_segments.append(segment)
             suggested_path = "/".join(new_segments)
