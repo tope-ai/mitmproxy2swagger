@@ -13,6 +13,7 @@ mitmproxy = "^11.0.2"
 json-stream = "^2.3.2"
 msgpack = "^1.0.7"
 pandas = "^2.0.0"
+pymongo = "^4.6.1"
 
 
 [tool.poetry.group.dev.dependencies]
