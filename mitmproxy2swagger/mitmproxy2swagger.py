@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Converts a mitmproxy dump file to a swagger schema."""
-from src.utils_for_mitm import is_param
+from topeai_utils import is_param
 import argparse
 import json
 import os
