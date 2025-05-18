@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 import ruamel.yaml as ruamel
 
-from .mitmproxy2swagger import main
+from .mitmproxy2swagger_with_utils import main
 
 
 def get_nested_key(obj: Any, path: str) -> Any:
