@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Converts a mitmproxy dump file to a swagger schema."""
-from topeai_param_identifier import identify_url_path         # Change
-from topeai_init_bert import init_ner_pipeline                # Change
+from .topeai_param_identifier import identify_url_path         # Change
+from .topeai_init_bert import init_ner_pipeline                # Change
 from urllib.parse import unquote_plus                         # Change
 import argparse
 import json
