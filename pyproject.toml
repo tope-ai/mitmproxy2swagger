@@ -8,13 +8,15 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-mitmproxy = "^11.0.2"
+mitmproxy = { git = "https://github.com/tope-ai/mitmproxy2swagger.git", rev = "master" }
 "ruamel.yaml" = ">=0.17.32,<0.19.0"
 json-stream = "^2.3.2"
 msgpack = "^1.0.7"
 pandas = "^2.0.0"
 pymongo = "^4.6.1"
 pyyaml = "^6.0"
+transformers = "^4.51.3"
+torch = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

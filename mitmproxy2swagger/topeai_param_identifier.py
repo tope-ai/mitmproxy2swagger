@@ -1,5 +1,5 @@
-from topeai_init_bert import init_ner_pipeline
-from urllib.parse import urlparse
+from .topeai_init_bert import init_ner_pipeline
+from urllib.parse import urlparse, unquote_plus
 import pandas as pd
 import math
 import re
@@ -11,88 +11,120 @@ def identify_url_path(url: str, ner_pipeline=None) -> str:
     path = extract_url_parts(url)
     replaced_text = replace_special_tokens(path)
 
-    # Step 1: special tokens
-    unique_tokens = set()
-    slash_tokens = replaced_text.split('/')
-    for token in slash_tokens:
-        sub_tokens = re.findall(r'\S+', token)
-        for t in sub_tokens:
-            if t and t != "param":
-                unique_tokens.add(t)
+    unique_tokens = extract_unique_tokens(replaced_text)
+    random_like_tokens = {t for t in unique_tokens if shannon_entropy(t) > 3.3 and len(t) >= 8}
 
-    random_like_tokens = set()
-    for token in unique_tokens:
-        entropy = shannon_entropy(token)
-        if entropy > 3.3 and len(token) >= 8:
-            random_like_tokens.add(token)
+    final_path = replace_random_tokens(replaced_text, random_like_tokens)
 
-    # Step 2: final path
-    tokens = replaced_text.split('/')
-    new_tokens = []
+    # Run NER on remaining non-param tokens
+    sentence = final_path.replace('/', ' ')
+    ner_results = ner_pipeline(sentence)
+    ner_tokens = {e['word'] for e in ner_results}
+
+    tokens = final_path.split('/')
+    final_tokens = []
     for token in tokens:
         if token == "param":
-            new_tokens.append("param")
+            final_tokens.append(token)
         else:
             sub_tokens = token.split(',')
-            new_sub_tokens = []
+            updated = []
             for t in sub_tokens:
                 t_clean = t.strip()
-                if t_clean == "param" or t_clean in random_like_tokens:
-                    new_sub_tokens.append("param")
+                if t_clean in ner_tokens:
+                    updated.append("param")
                 else:
-                    new_sub_tokens.append(t_clean)
-            rebuilt_token = ', '.join(new_sub_tokens)
-            new_tokens.append(rebuilt_token)
+                    updated.append(t_clean)
+            final_tokens.append(', '.join(updated))
+            
+    final_path = '/'.join(final_tokens)
+    final_path = re.sub(r'(param\s*[, ]\s*)+param', 'param', final_path)
 
-    return '/'.join(new_tokens)
+    return final_path
 
-def extract_url_parts(url):
-    """Extracts path and query string from a URL (excluding domain)"""
-    parsed = urlparse(url)
+
+def extract_url_parts(url: str) -> str:
+    """Extracts decoded path from a URL, removing 'api/' prefix if present"""
+    parsed = urlparse(unquote_plus(url))
     path = parsed.path
+    if path.startswith("/api/"):
+        path = path[4:]  # remove 'api' prefix
+    elif path.startswith("api/"):
+        path = path[3:]
     return path
 
-def replace_special_tokens(text):
-    """Replaces UUIDs, IDs, and DateTime strings with placeholders in the entire text"""
+
+def replace_special_tokens(text: str) -> str:
+    """Replaces UUIDs, numbers, and datetime strings with 'param'"""
     datetime_patterns = [
-        r"\d{1,2}[ ]?[A-Za-z]{3}[a-z]?[ ]?\d{4},[ ]?\d{2}:\d{2}",             # 14 Apr 2024, 08:30
-        r"[A-Za-z]{3,9}[ ]\d{1,2},[ ]?\d{4}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",  # Apr 14, 2024 or Apr 14, 2024 08:30
-        r"\d{2}[-/\.]\d{2}[-/\.]\d{4}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",        # 14-04-2024 or 14-04-2024 08:30
-        r"\d{4}[-/\.]\d{2}[-/\.]\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",        # 2024-04-14 or 2024-04-14 08:30
-        r"\d{1,2}[ ]?[A-Za-z]{3}[a-z]?[ ]?\d{4}[ ]?(?:[ T]\d{2}:\d{2})?",     # 14 Apr 2024 with optional time
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}",                               # 2024-04-14T08:30:00
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",                              # 2024-04-14T08:30:00Z
+        r"\d{1,2}[ ]?[A-Za-z]{3}[a-z]?[ ]?\d{4},[ ]?\d{2}:\d{2}",
+        r"[A-Za-z]{3,9}[ ]\d{1,2},[ ]?\d{4}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",
+        r"\d{2}[-/\.]\d{2}[-/\.]\d{4}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",
+        r"\d{4}[-/\.]\d{2}[-/\.]\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?",
+        r"\d{1,2}[ ]?[A-Za-z]{3}[a-z]?[ ]?\d{4}[ ]?(?:[ T]\d{2}:\d{2})?",
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?",
     ]
-    # Replace datetime patterns
     for pattern in datetime_patterns:
         text = re.sub(pattern, "param", text)
-    # Replace UUIDs
+
+    # UUIDs
     uuid_pattern = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
     text = uuid_pattern.sub("param", text)
-    # Replace numbers (only whole tokens)
+
+    # Numbers and date-like values
     tokens = text.split('/')
     new_tokens = []
     for token in tokens:
         sub_tokens = token.split(',')
-        new_sub_tokens = []
+        processed = []
         for t in sub_tokens:
-            if t.isdigit():
-                new_sub_tokens.append("param")
+            t_clean = t.strip()
+            if t_clean.isdigit():
+                processed.append("param")
             else:
-                # Also check if it's a date in text format
                 try:
-                    date = pd.to_datetime(t, errors='coerce')
-                    if pd.notna(date) and (date.day != 1 or date.month != 1 or len(t) > 4):
-                        new_sub_tokens.append("param")
+                    date = pd.to_datetime(t_clean, errors='coerce')
+                    if pd.notna(date) and (date.day != 1 or date.month != 1 or len(t_clean) > 4):
+                        processed.append("param")
                     else:
-                        new_sub_tokens.append(t)
+                        processed.append(t_clean)
                 except:
-                    new_sub_tokens.append(t)
-        new_tokens.append(','.join(new_sub_tokens))
+                    processed.append(t_clean)
+        new_tokens.append(','.join(processed))
     return '/'.join(new_tokens)
 
-def shannon_entropy(data):
+
+def extract_unique_tokens(text: str) -> set:
+    """Extract all non-param tokens split by slashes and non-space patterns"""
+    unique_tokens = set()
+    for token in text.split('/'):
+        sub_tokens = re.findall(r'\S+', token)
+        for t in sub_tokens:
+            if t and t != "param":
+                unique_tokens.add(t)
+    return unique_tokens
+
+
+def replace_random_tokens(text: str, random_like_tokens: set) -> str:
+    """Replaces tokens in text if they are in the random-like set"""
+    tokens = text.split('/')
+    new_tokens = []
+    for token in tokens:
+        if token == "param":
+            new_tokens.append(token)
+        else:
+            sub_tokens = token.split(',')
+            updated = []
+            for t in sub_tokens:
+                t_clean = t.strip()
+                updated.append("param" if t_clean in random_like_tokens else t_clean)
+            new_tokens.append(', '.join(updated))
+    return '/'.join(new_tokens)
+
+
+def shannon_entropy(data: str) -> float:
+    """Computes Shannon entropy of a string"""
     if not data:
-        return 0
+        return 0.0
     probabilities = [float(data.count(c)) / len(data) for c in set(data)]
     return -sum(p * math.log(p, 2) for p in probabilities)

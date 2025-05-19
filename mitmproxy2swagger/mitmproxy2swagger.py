@@ -3,7 +3,7 @@
 """Converts a mitmproxy dump file to a swagger schema."""
 from .topeai_param_identifier import identify_url_path         # Change
 from .topeai_init_bert import init_ner_pipeline                # Change
-from urllib.parse import unquote_plus                         # Change
+from urllib.parse import unquote_plus                          # Change
 import argparse
 import json
 import os
@@ -189,8 +189,8 @@ def main(override_args: Optional[Sequence[str]] = None):
 
             url = unquote_plus(url)                                                                      # Change
             method = req.get_method().lower()
-            path = strip_query_string(url).removeprefix(args.api_prefix)
-            path = identify_url_path(path, ner_pipeline)                                                 # Change
+            path_raw = strip_query_string(url).removeprefix(args.api_prefix)
+            path = identify_url_path(path_raw, ner_pipeline)                                                 # Change
             status = req.get_response_status_code()
 
             # check if the path matches any of the path templates, and save the index
@@ -202,6 +202,7 @@ def main(override_args: Optional[Sequence[str]] = None):
             if path_template_index is None:
                 if path in new_path_templates:
                     continue
+                #print(f"Adding new template: {path}")                                                        # Change
                 new_path_templates.append(path)
                 continue
 
@@ -418,6 +419,10 @@ def main(override_args: Optional[Sequence[str]] = None):
     for path in new_path_templates_with_suggestions:
         swagger["x-path-templates"].append(path)
     """
+    for new_path in new_path_templates:                                                          # Change
+        if new_path not in swagger["x-path-templates"]:
+            swagger["x-path-templates"].append(new_path)
+    
     # remove elements already generated
     swagger["x-path-templates"] = [
         path for path in swagger["x-path-templates"] if path not in swagger["paths"]
