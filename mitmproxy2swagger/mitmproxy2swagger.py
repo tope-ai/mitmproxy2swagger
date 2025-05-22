@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Converts a mitmproxy dump file to a swagger schema."""
-from .topeai_param_identifier import identify_url_path         # Change
-from .topeai_init_bert import init_ner_pipeline                # Change
-from urllib.parse import unquote_plus                          # Change
+from .topeai_param_identifier import PIIDetector     # Change
+from urllib.parse import unquote_plus                # Change
 import argparse
 import json
 import os
@@ -23,8 +22,6 @@ from mitmproxy2swagger.mitmproxy_capture_reader import (
     MitmproxyCaptureReader,
     mitmproxy_dump_file_huristic,
 )
-
-ner_pipeline = init_ner_pipeline()
 
 def path_to_regex(path):
     # replace the path template with a regex
@@ -61,6 +58,7 @@ def detect_input_format(file_path):
 
 
 def main(override_args: Optional[Sequence[str]] = None):
+    detector = PIIDetector()                                                          # Change
     parser = argparse.ArgumentParser(
         description="Converts a mitmproxy dump file or HAR to a swagger schema."
     )
@@ -190,7 +188,7 @@ def main(override_args: Optional[Sequence[str]] = None):
             url = unquote_plus(url)                                                                      # Change
             method = req.get_method().lower()
             path_raw = strip_query_string(url).removeprefix(args.api_prefix)
-            path = identify_url_path(path_raw, ner_pipeline)                                                 # Change
+            path = detector.analyse_url(path_raw)                                                        # Change
             status = req.get_response_status_code()
 
             # check if the path matches any of the path templates, and save the index

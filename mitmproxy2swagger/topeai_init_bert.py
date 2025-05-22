@@ -1,5 +1,5 @@
-import os
 from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+import os
 
 def init_ner_pipeline():
     """
@@ -21,4 +21,5 @@ def init_ner_pipeline():
     print(f"NER pipeline initialized using cache at: {local_cache_dir}")
     return ner
 
-ner_pipeline = init_ner_pipeline()
+if __name__ == "__main__":
+    init_ner_pipeline()
