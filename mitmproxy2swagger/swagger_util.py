@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import urllib
 import uuid
+import re                                                          # Change
 from typing import Any, List
 
 VERBS = [
@@ -48,10 +49,33 @@ def path_template_to_endpoint_name(method, path_template):
 
 # when given an url and its path template, generates the parameters section of the request
 def url_to_params(url, path_template):
-    path_template = path_template.strip("/")
+    path_template = path_template.strip("/")    
     segments = path_template.split("/")
-    url_segments = url.split("?")[0].strip("/").split("/")
+    url_segments = url.split("?")[0].strip("/").split("/") # only url
     params = []
+
+    for idx, segment in enumerate(segments):                            # Change
+        if segment.startswith("{") and segment.endswith("}"):
+            content = segment[1:-1]  # remove "{}"
+            if "_" in content:
+                param_type, name = content.split("_", 1) # cut according the first "_"
+            else:
+                name = content
+                param_type = "string"
+            
+            name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+            name = re.sub(r'_+', '_', name)
+            params.append(
+                {
+                    "name": name,
+                    "in": "path",
+                    "required": True,
+                    "schema": {
+                        "type": param_type
+                    },
+                }
+            )
+    """
     for idx, segment in enumerate(segments):
         if segment.startswith("{") and segment.endswith("}"):
             params.append(
@@ -64,7 +88,8 @@ def url_to_params(url, path_template):
                     },
                 }
             )
-    query_string = urllib.parse.urlparse(url).query
+    """
+    query_string = urllib.parse.urlparse(url).query # the query, without {}. takes any key.
     if query_string:
         query_params = urllib.parse.parse_qs(query_string)
         for key in query_params:

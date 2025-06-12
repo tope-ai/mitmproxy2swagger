@@ -377,46 +377,11 @@ def main(override_args: Optional[Sequence[str]] = None):
             )
         sys.exit(1)
 
-    """
-    def is_param(param_value):
-        return args.param_regex.match(param_value) is not None
+    #new_path_templates = [                                                                       # Change - {param} everywhere there are "{}"
+    #    re.sub(r"\{[^{}]*\}", "{param}", path)
+    #    for path in new_path_templates
+    #]
 
-    new_path_templates.sort()
-
-    # add suggested path templates
-  # basically inspects urls and replaces segments containing only numbers with a parameter
-    new_path_templates_with_suggestions = []
-    for path in new_path_templates:
-        # check if path contains number-only segments
-        segments = path.split("/")
-        has_param = any(is_param(segment) for segment in segments)
-        if has_param:
-            # replace digit segments with {id}, {id1}, {id2} etc
-            new_segments = []
-            param_id = 0
-            for segment in segments:
-                if is_param(segment):
-                    param_name = "id" + str(param_id)
-                    if param_id == 0:
-                        param_name = "id"
-                    new_segments.append("{" + param_name + "}")
-                    param_id += 1
-                else:
-                    new_segments.append(segment)
-            suggested_path = "/".join(new_segments)
-            # prepend the suggested path to the new_path_templates list
-            if suggested_path not in new_path_templates_with_suggestions:
-                new_path_templates_with_suggestions.append("ignore:" + suggested_path)
-
-        if not has_param or not args.suppress_params:
-            new_path_templates_with_suggestions.append("ignore:" + path)  
-    
-    # remove the ending comments not to add them twice
-
-    # append the contents of new_path_templates_with_suggestions to swagger['x-path-templates']
-    for path in new_path_templates_with_suggestions:
-        swagger["x-path-templates"].append(path)
-    """
     for new_path in new_path_templates:                                                          # Change
         if new_path not in swagger["x-path-templates"]:
             swagger["x-path-templates"].append(new_path)
